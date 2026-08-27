@@ -1,6 +1,6 @@
 # Day 01 — You Don't Need Microservices Yet
 
-> 🔗 **LinkedIn Discussion**: [Link to today's LinkedIn Post](https://linkedin.com/in/your-profile)  
+> 🔗 **LinkedIn Discussion**: [Read & Discuss on LinkedIn](https://www.linkedin.com/feed/update/urn:li:activity:7498843866280865792/)  
 > 🏛️ **System Architecture Milestone**: [`v1-monolith`](../../../system-evolution/v1-monolith)
 
 ---
