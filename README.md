@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Series Status](https://img.shields.io/badge/Series-30%20Days%20Active-brightgreen.svg)](#the-30-day-roadmap)
-[![LinkedIn](https://img.shields.io/badge/Follow-LinkedIn-0A66C2.svg)](#context--linkedin-entry-point)
+[![LinkedIn](https://img.shields.io/badge/Follow-LinkedIn-0A66C2.svg)](https://www.linkedin.com/in/himanshu-verma-822a07286/)
 
 ---
 

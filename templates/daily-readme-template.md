@@ -1,6 +1,6 @@
 # Day [XX] — [Day Title]
 
-> 🔗 **LinkedIn Discussion**: [Link to today's LinkedIn Post](https://linkedin.com/in/your-profile)  
+> 🔗 **LinkedIn Discussion**: [Read & Discuss on LinkedIn](https://www.linkedin.com/in/himanshu-verma-822a07286/)  
 > 🏛️ **System Architecture Milestone**: [`vX-[version-name]`](../../../system-evolution/vX-[version-name])
 
 ---
