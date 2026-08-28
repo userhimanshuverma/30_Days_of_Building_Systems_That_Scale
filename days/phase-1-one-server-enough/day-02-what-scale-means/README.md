@@ -253,9 +253,9 @@ sequenceDiagram
     User2->>API: POST /orders (Item #42)
     API->>Pool: Acquire Connection (Conn 1)
     API->>Pool: Acquire Connection (Conn 2)
-    Pool->>DB: BEGIN TX 1; SELECT stock FROM inventory WHERE item_id=42 FOR UPDATE;
+    Pool->>DB: BEGIN TX 1 - SELECT stock FOR UPDATE (item 42)
     Note over DB: TX 1 acquires Row Lock on Item #42
-    Pool->>DB: BEGIN TX 2; SELECT stock FROM inventory WHERE item_id=42 FOR UPDATE;
+    Pool->>DB: BEGIN TX 2 - SELECT stock FOR UPDATE (item 42)
     Note over DB: TX 2 BLOCKED waiting for TX 1 Row Lock release
     Note over API, Pool: Connection Pool saturates as 998 other requests queue up
     API-->>User2: HTTP 503 Service Unavailable (Connection Timeout)
