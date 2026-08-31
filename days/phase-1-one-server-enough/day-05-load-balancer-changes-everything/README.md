@@ -195,7 +195,7 @@ app-02: 18 active connections  <─── Next Request routed here!
 app-03: 35 active connections
 ```
 
-- **How it works**: The proxy increments a counter when a request is forwarded to an instance and decrements it when the response completes. New requests target $\min(\text{active\_connections})$.
+- **How it works**: The proxy increments a counter when a request is forwarded to an instance and decrements it when the response completes. New requests target the server with the lowest active count: `min(active_connections)`.
 - **Where it helps**: Prevents server overload when request processing times vary wildly (e.g., some endpoints complete in 5ms, while others spend 2,000ms generating reports or processing images).
 - **Limitations**: Incur slight CPU overhead to track state across connections. **Dangerous during instant error cascades**: if `app-02` breaks and begins immediately throwing HTTP `500` errors in 0.1ms, its active connection count drops to 0. Least Connections will mistakenly route *all* incoming traffic to the failing node!
 - **When it makes sense**: Workloads with long-running requests, WebSocket connections, or highly variable API execution times.
