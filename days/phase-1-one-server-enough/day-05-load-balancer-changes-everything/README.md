@@ -98,14 +98,14 @@ To solve these failure modes, we must place a dedicated, highly reliable proxy c
 
 ```mermaid
 graph TD
-    Client1[Mobile Client] --> LB[Load Balancer / Reverse Proxy<br/>Public IP: 203.0.113.50]
-    Client2[Web Browser] --> LB
-    Client3[Third-Party API] --> LB
+    Client1["Mobile Client"] --> LB["Load Balancer / Reverse Proxy<br/>Public IP: 203.0.113.50"]
+    Client2["Web Browser"] --> LB
+    Client3["Third-Party API"] --> LB
 
-    subgraph Private Network (VPC)
-        LB -->|Route & Health Check| App1[app-01<br/>10.0.1.10:8080]
-        LB -->|Route & Health Check| App2[app-02<br/>10.0.1.11:8080]
-        LB -->|Route & Health Check| App3[app-03<br/>10.0.1.12:8080]
+    subgraph VPC ["Private Network (VPC)"]
+        LB -->|Route & Health Check| App1["app-01<br/>10.0.1.10:8080"]
+        LB -->|Route & Health Check| App2["app-02<br/>10.0.1.11:8080"]
+        LB -->|Route & Health Check| App3["app-03<br/>10.0.1.12:8080"]
 
         App1 --> Redis[(Redis Session Store)]
         App2 --> Redis
@@ -286,12 +286,12 @@ Let's implement the Layer 7 load balancer architecture for **ShopScale** using N
 
 ```mermaid
 graph TD
-    UserClient[Internet Clients<br/>HTTPS / Port 443] -->|Public IP: 203.0.113.50| NGINX[NGINX Layer 7 Load Balancer<br/>TLS Termination & Health Probing]
+    UserClient["Internet Clients<br/>HTTPS / Port 443"] -->|Public IP: 203.0.113.50| NGINX["NGINX Layer 7 Load Balancer<br/>TLS Termination & Health Probing"]
 
-    subgraph Private Application Subnet (10.0.1.0/24)
-        NGINX -->|Least Connections<br/>HTTP / Port 8080| App1[app-01: 10.0.1.10]
-        NGINX -->|Least Connections<br/>HTTP / Port 8080| App2[app-02: 10.0.1.11]
-        NGINX -->|Least Connections<br/>HTTP / Port 8080| App3[app-03: 10.0.1.12]
+    subgraph AppSubnet ["Private Application Subnet (10.0.1.0/24)"]
+        NGINX -->|Least Connections<br/>HTTP / Port 8080| App1["app-01: 10.0.1.10"]
+        NGINX -->|Least Connections<br/>HTTP / Port 8080| App2["app-02: 10.0.1.11"]
+        NGINX -->|Least Connections<br/>HTTP / Port 8080| App3["app-03: 10.0.1.12"]
 
         App1 -->|Session Store| Redis[(Redis Cluster)]
         App2 -->|Session Store| Redis
