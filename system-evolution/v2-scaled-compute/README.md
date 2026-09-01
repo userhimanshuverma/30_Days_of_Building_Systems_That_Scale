@@ -24,27 +24,30 @@ Incoming traffic hits a single ingress endpoint (`api.shopscale.com`) managed by
 graph TD
     Client["Client Browsers / Apps"] -->|HTTP / HTTPS| LB["Load Balancer / Ingress"]
 
-    subgraph Stateless_Compute_Tier ["Stateless Application Instances (v2-scaled-compute)"]
-        LB --> App1[App Instance 01]
-        LB --> App2[App Instance 02]
-        LB --> AppN[App Instance 10]
+    LB --> App1["App Instance 01"]
+    LB --> App2["App Instance 02"]
+    LB --> AppN["App Instance 10"]
+
+    subgraph Externalized_State ["Externalized State Tier"]
+        Redis[(Redis Session Cluster)]
+        S3[(S3 Object Storage)]
     end
 
-    subgraph Externalized_State_Tier ["Externalized State Tier"]
-        App1 -->|Session State| Redis[(Redis Cluster)]
-        App2 -->|Session State| Redis
-        AppN -->|Session State| Redis
+    App1 -->|Session State| Redis
+    App2 -->|Session State| Redis
+    AppN -->|Session State| Redis
 
-        App1 -->|File Uploads| S3[(Object Storage / S3)]
-        App2 -->|File Uploads| S3
-        AppN -->|File Uploads| S3
+    App1 -->|File Uploads| S3
+    App2 -->|File Uploads| S3
+    AppN -->|File Uploads| S3
+
+    subgraph Central_Database ["Central Data Tier (Bottleneck)"]
+        DB[(PostgreSQL Primary DB)]
     end
 
-    subgraph Central_Data_Tier ["Single Database Node (Bottleneck)"]
-        App1 -->|Connection Pool| DB[(PostgreSQL Primary DB)]
-        App2 -->|Connection Pool| DB
-        AppN -->|Connection Pool| DB
-    end
+    App1 -->|Connection Pool| DB
+    App2 -->|Connection Pool| DB
+    AppN -->|Connection Pool| DB
 ```
 
 ---
@@ -58,7 +61,7 @@ graph TD
 | **P99 Latency SLA** | Compute < 25ms; Spikes to > 8,000ms under heavy DB lock contention |
 | **Compute Tier** | Horizontally Scalable (1 to 10+ Stateless Nodes) |
 | **Session Tier** | In-Memory Redis Cache Cluster |
-| **Data Tier** | 1x PostgreSQL Primary DB (Single Point of Failure & Bottleneck) |
+| **Data Tier** | 1x PostgreSQL Primary DB (Single Point of Failure and Bottleneck) |
 | **Async Worker Tier** | None (Synchronous API execution) |
 | **Target Availability** | 99.9% Compute Availability (DB remains Single Point of Failure) |
 
