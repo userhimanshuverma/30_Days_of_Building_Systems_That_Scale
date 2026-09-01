@@ -22,15 +22,15 @@ Incoming traffic hits a single ingress endpoint (`api.shopscale.com`) managed by
 
 ```mermaid
 graph TD
-    Client[Client Browsers / Apps] -->|HTTP / HTTPS| LB[Load Balancer / Ingress]
+    Client["Client Browsers / Apps"] -->|HTTP / HTTPS| LB["Load Balancer / Ingress"]
 
-    subgraph Stateless Compute Tier ["Stateless Application Instances (v2-scaled-compute)"]
+    subgraph Stateless_Compute_Tier ["Stateless Application Instances (v2-scaled-compute)"]
         LB --> App1[App Instance 01]
         LB --> App2[App Instance 02]
         LB --> AppN[App Instance 10]
     end
 
-    subgraph Externalized State Tier
+    subgraph Externalized_State_Tier ["Externalized State Tier"]
         App1 -->|Session State| Redis[(Redis Cluster)]
         App2 -->|Session State| Redis
         AppN -->|Session State| Redis
@@ -40,7 +40,7 @@ graph TD
         AppN -->|File Uploads| S3
     end
 
-    subgraph Central Data Tier ["Single Database Node (Bottleneck)"]
+    subgraph Central_Data_Tier ["Single Database Node (Bottleneck)"]
         App1 -->|Connection Pool| DB[(PostgreSQL Primary DB)]
         App2 -->|Connection Pool| DB
         AppN -->|Connection Pool| DB
