@@ -128,18 +128,35 @@ To understand why relational databases break under horizontal application scale,
 
 ### The 4 Core Bottlenecks of a Single Database
 
-```mermaid
-graph TD
-    subgraph Bottlenecks ["Single Database Node Constraints"]
-        CON["1. Connection Overhead (Process per Connection)"]
-        CPU["2. CPU and Memory Saturation (Query Scans)"]
-        LOCK["3. Row and Table Lock Contention"]
-        IO["4. Disk I/O and WAL Saturation"]
-    end
-
-    CON --> CPU
-    CPU --> LOCK
-    LOCK --> IO
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                  Single Database Node Constraints               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ 1. Connection Overhead                                    │  │
+│  │    (Process per connection, RAM & CPU context switching)   │  │
+│  └──────────────────────────┬────────────────────────────────┘  │
+│                             │                                   │
+│                             ▼                                   │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ 2. CPU & Memory Saturation                                │  │
+│  │    (Query execution, index scans, sorting in work_mem)    │  │
+│  └──────────────────────────┬────────────────────────────────┘  │
+│                             │                                   │
+│                             ▼                                   │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ 3. Row & Table Lock Contention                            │  │
+│  │    (Concurrent updates wait for transaction commits)      │  │
+│  └──────────────────────────┬────────────────────────────────┘  │
+│                             │                                   │
+│                             ▼                                   │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ 4. Disk I/O & WAL Saturation                              │  │
+│  │    (Sequential WAL writes & random data page reads)       │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 #### 1. Connection Multiplication Math
@@ -219,25 +236,28 @@ Let's examine how **ShopScale**'s architecture evolves to resolve database conne
 
 Without a proxy, 10 application nodes establish independent connection pools directly to PostgreSQL:
 
-```mermaid
-graph TD
-    LB["Load Balancer"] --> App1["App Node 01 (Pool: 25)"]
-    LB --> App2["App Node 02 (Pool: 25)"]
-    LB --> App3["App Node 10 (Pool: 25)"]
-
-    App1 -->|25 Direct Conns| DB["PostgreSQL Primary DB (250+ Conns)"]
-    App2 -->|25 Direct Conns| DB
-    App3 -->|25 Direct Conns| DB
-
-    subgraph DB_Issues ["Database Saturation Bottlenecks"]
-        C1["CPU Context-Switch Thrashing"]
-        C2["Disk IOPS WAL Bottleneck"]
-        C3["Memory Exhaustion"]
-    end
-
-    DB --> C1
-    DB --> C2
-    DB --> C3
+```text
+                              [ Load Balancer ]
+                                     │
+            ┌────────────────────────┼────────────────────────┐
+            ▼                        ▼                        ▼
+   ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+   │  App Node 01    │     │  App Node 02    │     │  App Node 10    │
+   │  Pool: 25 Conns │     │  Pool: 25 Conns │     │  Pool: 25 Conns │
+   └────────┬────────┘     └────────┬────────┘     └────────┬────────┘
+            │ 25 Direct              │ 25 Direct             │ 25 Direct
+            │ Connections            │ Connections            │ Connections
+            └────────────────────────┼────────────────────────┘
+                                     │
+                                     ▼
+                      ┌──────────────────────────────┐
+                      │  PostgreSQL Primary DB       │
+                      │  💥 250+ Active Connections  │
+                      ├──────────────────────────────┤
+                      │  • CPU Context-Switch Thrash │
+                      │  • Disk IOPS Saturated       │
+                      │  • Memory Exhaustion         │
+                      └──────────────────────────────┘
 ```
 
 ---
@@ -246,50 +266,71 @@ graph TD
 
 By introducing **PgBouncer** in **Transaction Pooling Mode**, 10 application nodes open hundreds of lightweight client connections to PgBouncer. PgBouncer multiplexes these into a small, fixed pool of **25 active connections** to PostgreSQL:
 
-```mermaid
-graph TD
-    LB["Load Balancer"] --> App1["App Node 01"]
-    LB --> App2["App Node 02"]
-    LB --> App3["App Node 10"]
-
-    App1 -->|100 Conns| PGB["PgBouncer Proxy"]
-    App2 -->|100 Conns| PGB
-    App3 -->|100 Conns| PGB
-
-    PGB -->|25 Bounded Conns| DB["PostgreSQL Primary (25 Conns)"]
-
-    subgraph DB_Health ["Database Protected State"]
-        H1["25 Fixed Backend Processes"]
-        H2["Optimal CPU Cache Efficiency"]
-        H3["Protected Buffer Memory"]
-    end
-
-    DB --> H1
-    DB --> H2
-    DB --> H3
+```text
+                              [ Load Balancer ]
+                                     │
+            ┌────────────────────────┼────────────────────────┐
+            ▼                        ▼                        ▼
+   ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+   │  App Node 01    │     │  App Node 02    │     │  App Node 10    │
+   └────────┬────────┘     └────────┬────────┘     └────────┬────────┘
+            │ 100 Conns              │ 100 Conns             │ 100 Conns
+            │ (lightweight)          │ (lightweight)          │ (lightweight)
+            └────────────────────────┼────────────────────────┘
+                                     │
+                                     ▼
+                      ┌──────────────────────────────┐
+                      │     PgBouncer Proxy          │
+                      │  Transaction Pooling Mode    │
+                      │  Frontend: 2000 max conns    │
+                      └──────────────┬───────────────┘
+                                     │ 25 Bounded
+                                     │ Connections (Fixed)
+                                     ▼
+                      ┌──────────────────────────────┐
+                      │  PostgreSQL Primary DB       │
+                      │  ✅ 25 Active Connections    │
+                      ├──────────────────────────────┤
+                      │  • 25 Fixed Backend Procs    │
+                      │  • Optimal CPU Cache Usage   │
+                      │  • Buffer Cache Protected    │
+                      └──────────────────────────────┘
 ```
 
 ---
 
 ### 3. Request Execution Flow with PgBouncer Transaction Pooling
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Client
-    participant App as App Instance
-    participant Proxy as PgBouncer Proxy
-    participant DB as PostgreSQL Database
-
-    Client->>App: POST /checkout
-    App->>Proxy: BEGIN Transaction
-    Proxy->>DB: Assign Connection from Pool
-    App->>Proxy: UPDATE inventory SET stock = stock - 1
-    Proxy->>DB: Execute SQL Update
-    App->>Proxy: COMMIT Transaction
-    Proxy->>DB: Commit and Flush WAL
-    Proxy-->>App: Transaction Complete
-    App-->>Client: 200 OK (Order Confirmed)
+```text
+  Client          App Instance         PgBouncer Proxy        PostgreSQL DB
+    │                  │                      │                      │
+    │  POST /checkout  │                      │                      │
+    │ ────────────────>│                      │                      │
+    │                  │                      │                      │
+    │                  │  BEGIN Transaction    │                      │
+    │                  │ ────────────────────> │                      │
+    │                  │                      │                      │
+    │                  │                      │  Assign Conn (Pool)  │
+    │                  │                      │ ────────────────────> │
+    │                  │                      │                      │
+    │                  │  UPDATE inventory    │                      │
+    │                  │  SET stock=stock-1   │                      │
+    │                  │ ────────────────────> │                      │
+    │                  │                      │  Execute SQL Update  │
+    │                  │                      │ ────────────────────> │
+    │                  │                      │                      │
+    │                  │  COMMIT Transaction  │                      │
+    │                  │ ────────────────────> │                      │
+    │                  │                      │  Commit & Flush WAL  │
+    │                  │                      │ ────────────────────> │
+    │                  │                      │                      │
+    │                  │                      │  <── Conn returned   │
+    │                  │                      │      to pool         │
+    │                  │  <── Txn Complete    │                      │
+    │                  │                      │                      │
+    │  <── 200 OK     │                      │                      │
+    │  (Order Confirmed)                      │                      │
+    │                  │                      │                      │
 ```
 
 ---
@@ -362,13 +403,26 @@ While horizontal application scaling allows individual application nodes to cras
 
 When your application scales out and database metrics begin degrading, follow this decision matrix:
 
-```mermaid
-graph TD
-    A["DB Limits Exceeded"] --> B{"What is the bottleneck?"}
-    B -->|Too many client connections| C["Deploy PgBouncer Proxy"]
-    B -->|Read query volume over 80%| D["Add Read Replicas"]
-    B -->|Repetitive query execution| E["Introduce Redis Cache"]
-    B -->|Write volume exceeds IOPS| F["Evaluate Database Sharding"]
+```text
+                    ┌──────────────────────────────┐
+                    │  DB Limits Exceeded?         │
+                    └──────────────┬───────────────┘
+                                   │
+                                   ▼
+                    ┌──────────────────────────────┐
+                    │  What is the bottleneck?     │
+                    └──┬───────┬────────┬───────┬──┘
+                       │       │        │       │
+       ┌───────────────┘       │        │       └────────────────┐
+       ▼                       ▼        ▼                        ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐
+│ Too many     │  │ Read query   │  │ Repetitive   │  │ Write volume     │
+│ client conns │  │ volume > 80% │  │ queries      │  │ exceeds IOPS     │
+├──────────────┤  ├──────────────┤  ├──────────────┤  ├──────────────────┤
+│ Deploy       │  │ Add Read     │  │ Introduce    │  │ Evaluate DB      │
+│ PgBouncer    │  │ Replicas     │  │ Redis Cache  │  │ Sharding         │
+│ Proxy        │  │              │  │              │  │                  │
+└──────────────┘  └──────────────┘  └──────────────┘  └──────────────────┘
 ```
 
 1. **Audit Connection Math First**: Verify that $N_{\text{app instances}} \times \text{Pool Size} \le \text{Optimal DB Conns}$ (typically 20–50 for PostgreSQL). If not, introduce connection proxying (`PgBouncer`) before touching application code.
