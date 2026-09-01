@@ -130,11 +130,11 @@ To understand why relational databases break under horizontal application scale,
 
 ```mermaid
 graph TD
-    subgraph Single_DB ["Single DB Node Constraints"]
-        CON["1. Connection Overhead<br/>(Process per connection, RAM and CPU context switching)"]
-        CPU["2. CPU and Memory Saturation<br/>(Query execution, JSON/Index scans, sorting in work_mem)"]
-        LOCK["3. Row and Table Lock Contention<br/>(Concurrent updates wait for transaction commits)"]
-        IO["4. Disk I/O and WAL Saturation<br/>(Sequential WAL writes and random data page reads)"]
+    subgraph Bottlenecks ["Single Database Node Constraints"]
+        CON["1. Connection Overhead (Process per Connection)"]
+        CPU["2. CPU and Memory Saturation (Query Scans)"]
+        LOCK["3. Row and Table Lock Contention"]
+        IO["4. Disk I/O and WAL Saturation"]
     end
 
     CON --> CPU
@@ -225,15 +225,15 @@ graph TD
     LB --> App2["App Node 02 (Pool: 25)"]
     LB --> App3["App Node 10 (Pool: 25)"]
 
-    App1 -->|25 Direct Conns| DB
-    App2 -->|25 Direct Conns| DB
-    App3 -->|25 Direct Conns| DB
+    App1 --> DB
+    App2 --> DB
+    App3 --> DB
 
-    subgraph DB_Bottleneck ["Single PostgreSQL Database Node"]
-        DB[(PostgreSQL Primary)]
-        DB --- C1["250 Active Processes"]
-        DB --- C2["CPU Context Switching Thrashing"]
-        DB --- C3["Memory Exhaustion (work_mem)"]
+    subgraph Database ["Single PostgreSQL Database Node"]
+        DB["PostgreSQL Primary (250+ Conns)"]
+        DB --- C1["CPU Context-Switch Thrash"]
+        DB --- C2["Disk IOPS Saturation"]
+        DB --- C3["Memory Exhaustion"]
     end
 ```
 
@@ -249,17 +249,17 @@ graph TD
     LB --> App2["App Node 02"]
     LB --> App3["App Node 10"]
 
-    App1 -->|100 Frontend Conns| PGB["PgBouncer Proxy"]
-    App2 -->|100 Frontend Conns| PGB
-    App3 -->|100 Frontend Conns| PGB
+    App1 -->|100 Conns| PGB["PgBouncer Proxy"]
+    App2 -->|100 Conns| PGB
+    App3 -->|100 Conns| PGB
 
-    PGB -->|Fixed Pool of 25 Conns| DB
+    PGB -->|25 Bounded Conns| DB
 
-    subgraph DB_Healthy ["Single PostgreSQL Database Node"]
-        DB[(PostgreSQL Primary)]
+    subgraph Optimized_DB ["Single PostgreSQL Database Node"]
+        DB["PostgreSQL Primary (25 Conns)"]
         DB --- H1["25 Fixed Backend Processes"]
-        DB --- H2["Optimal CPU Cache Efficiency"]
-        DB --- H3["Memory Reserved for shared_buffers"]
+        DB --- H2["Optimal CPU Cache Usage"]
+        DB --- H3["Buffer Cache Protected"]
     end
 ```
 
@@ -271,19 +271,19 @@ graph TD
 sequenceDiagram
     autonumber
     actor Client
-    participant App as "App Instance (1 of 10)"
-    participant Proxy as "PgBouncer (Transaction Mode)"
-    participant DB as "PostgreSQL Engine"
+    participant App as App Instance
+    participant Proxy as PgBouncer Proxy
+    participant DB as PostgreSQL Database
 
     Client->>App: POST /checkout
-    App->>Proxy: BEGIN Transaction (Acquire Handle)
-    Proxy->>DB: Assign Connection from 25-Conn Pool
+    App->>Proxy: BEGIN Transaction
+    Proxy->>DB: Assign Connection (from Pool)
     App->>Proxy: UPDATE inventory SET stock = stock - 1
     Proxy->>DB: Execute SQL Update
     App->>Proxy: COMMIT Transaction
     Proxy->>DB: Commit and Flush WAL
     Proxy-->>App: Transaction Complete
-    Note over Proxy,DB: Connection returned immediately to Pool for next App Server request
+    Note over Proxy,DB: Connection returned immediately to pool
     App-->>Client: 200 OK (Order Confirmed)
 ```
 
@@ -359,11 +359,11 @@ When your application scales out and database metrics begin degrading, follow th
 
 ```mermaid
 flowchart TD
-    A["DB CPU or Connection Limits Exceeded?"] --> B{"What is the bottleneck?"}
-    B -->|Too many client conns| C["Deploy PgBouncer / Connection Proxy"]
-    B -->|Read query volume over 80%| D["Add Read Replicas and Separate Read/Write Traffic"]
-    B -->|Repetitive query execution| E["Introduce Redis In-Memory Cache"]
-    B -->|Write volume exceeds single node IOPS| F["Evaluate Table Partitioning / Database Sharding"]
+    A["DB Limits Exceeded?"] --> B{"What is the bottleneck?"}
+    B -->|Too many client connections| C["Deploy PgBouncer Connection Proxy"]
+    B -->|Read query volume over 80%| D["Add Read Replicas"]
+    B -->|Repetitive query execution| E["Introduce Redis Cache"]
+    B -->|Write volume exceeds single node IOPS| F["Evaluate Database Sharding"]
 ```
 
 1. **Audit Connection Math First**: Verify that $N_{\text{app instances}} \times \text{Pool Size} \le \text{Optimal DB Conns}$ (typically 20–50 for PostgreSQL). If not, introduce connection proxying (`PgBouncer`) before touching application code.
