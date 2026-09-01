@@ -363,12 +363,12 @@ While horizontal application scaling allows individual application nodes to cras
 When your application scales out and database metrics begin degrading, follow this decision matrix:
 
 ```mermaid
-flowchart TD
-    A["DB Limits Exceeded?"] --> B{"What is the bottleneck?"}
-    B -->|Too many client connections| C["Deploy PgBouncer Connection Proxy"]
+graph TD
+    A["DB Limits Exceeded"] --> B{"What is the bottleneck?"}
+    B -->|Too many client connections| C["Deploy PgBouncer Proxy"]
     B -->|Read query volume over 80%| D["Add Read Replicas"]
     B -->|Repetitive query execution| E["Introduce Redis Cache"]
-    B -->|Write volume exceeds single node IOPS| F["Evaluate Database Sharding"]
+    B -->|Write volume exceeds IOPS| F["Evaluate Database Sharding"]
 ```
 
 1. **Audit Connection Math First**: Verify that $N_{\text{app instances}} \times \text{Pool Size} \le \text{Optimal DB Conns}$ (typically 20–50 for PostgreSQL). If not, introduce connection proxying (`PgBouncer`) before touching application code.
