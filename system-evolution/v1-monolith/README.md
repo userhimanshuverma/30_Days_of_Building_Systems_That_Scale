@@ -12,24 +12,40 @@
 
 All core domain services—Authentication, Catalog, Cart, Checkout, Inventory, and Notifications—run within the same runtime memory space. Communication between modules occurs via in-memory function calls, and all transactional data operations execute within local PostgreSQL ACID transactions (`BEGIN ... COMMIT`).
 
-```mermaid
-graph TD
-    Client[Client App / Browser] -->|HTTP / REST| Router[API Router]
-    
-    subgraph Monolithic Process ["Single Application Server (v1-monolith)"]
-        Router --> Auth[Auth Module]
-        Router --> Catalog[Catalog Module]
-        Router --> Order[Order Module]
-        Router --> Inventory[Inventory Module]
-        
-        Order -- In-Memory Call --> Inventory
-        Catalog -- In-Memory Call --> Inventory
-    end
-
-    Auth -->|SQL| DB[(PostgreSQL Primary DB)]
-    Catalog -->|SQL| DB
-    Order -->|SQL / Transaction| DB
-    Inventory -->|SQL / Transaction| DB
+```text
+                    [ Client App / Browser ]
+                               │
+                          HTTP / REST
+                               │
+                               ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │           Single Application Server (v1-monolith)           │
+  │                                                             │
+  │                      ┌─────────────┐                        │
+  │                      │ API Router  │                        │
+  │                      └──┬──┬──┬──┬─┘                        │
+  │                         │  │  │  │                          │
+  │            ┌────────────┘  │  │  └────────────┐             │
+  │            ▼               ▼  ▼               ▼             │
+  │   ┌──────────────┐  ┌──────────┐  ┌───────────────────┐    │
+  │   │ Auth Module  │  │  Order   │  │ Inventory Module  │    │
+  │   │              │  │  Module  │  │                   │    │
+  │   └──────────────┘  └────┬─────┘  └─────────┬─────────┘    │
+  │                          │                  │               │
+  │                          │  In-Memory Call  │               │
+  │                          └────────>─────────┘               │
+  │                                                             │
+  │   ┌──────────────┐                                          │
+  │   │Catalog Module│──── In-Memory Call ──> Inventory Module  │
+  │   └──────────────┘                                          │
+  │                                                             │
+  └──────────┬──────────────┬──────────────┬──────────────┬─────┘
+             │              │              │              │
+        SQL  │         SQL  │    SQL/Txn   │    SQL/Txn   │
+             ▼              ▼              ▼              ▼
+           ┌──────────────────────────────────────────────┐
+           │         PostgreSQL Primary DB               │
+           └──────────────────────────────────────────────┘
 ```
 
 ---

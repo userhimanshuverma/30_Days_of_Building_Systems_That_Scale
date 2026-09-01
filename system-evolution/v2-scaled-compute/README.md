@@ -20,34 +20,50 @@ To enable horizontal compute scaling, we made the application process **stateles
 
 Incoming traffic hits a single ingress endpoint (`api.shopscale.com`) managed by a Load Balancer (e.g., NGINX / HAProxy / Cloud ALB), which distributes client requests evenly across `app-01` through `app-10`. However, all application nodes continue to read and write to a single primary PostgreSQL database.
 
-```mermaid
-graph TD
-    Client["Client Browsers / Apps"] -->|HTTP / HTTPS| LB["Load Balancer / Ingress"]
+```text
+                        [ Client Browsers / Apps ]
+                                    │
+                               HTTP / HTTPS
+                                    │
+                                    ▼
+                        ┌───────────────────────┐
+                        │  Load Balancer /      │
+                        │  Ingress              │
+                        └───────────┬───────────┘
+                                    │
+               ┌────────────────────┼────────────────────┐
+               ▼                    ▼                    ▼
+      ┌────────────────┐  ┌────────────────┐  ┌────────────────┐
+      │ App Instance 01│  │ App Instance 02│  │ App Instance 10│
+      └──┬──────────┬──┘  └──┬──────────┬──┘  └──┬──────────┬──┘
+         │          │         │          │         │          │
+         │          │         │          │         │          │
+   ┌─────┘     ┌────┘   ┌────┘     ┌────┘   ┌────┘     ┌────┘
+   │           │        │          │        │          │
+   ▼           ▼        ▼          ▼        ▼          ▼
 
-    LB --> App1["App Instance 01"]
-    LB --> App2["App Instance 02"]
-    LB --> AppN["App Instance 10"]
+ ┌─── Externalized State Tier ──────────────────────────────────┐
+ │                                                              │
+ │   ┌──────────────────────┐    ┌──────────────────────────┐   │
+ │   │  Redis Session       │    │  S3 Object Storage       │   │
+ │   │  Cluster             │    │  (Media & File Uploads)  │   │
+ │   │  (Session State)     │    │                          │   │
+ │   └──────────────────────┘    └──────────────────────────┘   │
+ │                                                              │
+ └──────────────────────────────────────────────────────────────┘
 
-    subgraph Externalized_State ["Externalized State Tier"]
-        Redis[(Redis Session Cluster)]
-        S3[(S3 Object Storage)]
-    end
+         │                    │                    │
+         │  Connection Pool   │  Connection Pool   │  Connection Pool
+         ▼                    ▼                    ▼
 
-    App1 -->|Session State| Redis
-    App2 -->|Session State| Redis
-    AppN -->|Session State| Redis
-
-    App1 -->|File Uploads| S3
-    App2 -->|File Uploads| S3
-    AppN -->|File Uploads| S3
-
-    subgraph Central_Database ["Central Data Tier (Bottleneck)"]
-        DB[(PostgreSQL Primary DB)]
-    end
-
-    App1 -->|Connection Pool| DB
-    App2 -->|Connection Pool| DB
-    AppN -->|Connection Pool| DB
+ ┌─── Central Data Tier (Bottleneck) ───────────────────────────┐
+ │                                                              │
+ │              ┌──────────────────────────────┐                │
+ │              │  PostgreSQL Primary DB       │                │
+ │              │  (Single Point of Failure)   │                │
+ │              └──────────────────────────────┘                │
+ │                                                              │
+ └──────────────────────────────────────────────────────────────┘
 ```
 
 ---
