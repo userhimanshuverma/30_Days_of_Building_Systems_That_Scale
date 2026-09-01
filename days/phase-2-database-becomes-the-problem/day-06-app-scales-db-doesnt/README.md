@@ -225,16 +225,19 @@ graph TD
     LB --> App2["App Node 02 (Pool: 25)"]
     LB --> App3["App Node 10 (Pool: 25)"]
 
-    App1 --> DB
-    App2 --> DB
-    App3 --> DB
+    App1 -->|25 Direct Conns| DB["PostgreSQL Primary DB (250+ Conns)"]
+    App2 -->|25 Direct Conns| DB
+    App3 -->|25 Direct Conns| DB
 
-    subgraph Database ["Single PostgreSQL Database Node"]
-        DB["PostgreSQL Primary (250+ Conns)"]
-        DB --- C1["CPU Context-Switch Thrash"]
-        DB --- C2["Disk IOPS Saturation"]
-        DB --- C3["Memory Exhaustion"]
+    subgraph DB_Issues ["Database Saturation Bottlenecks"]
+        C1["CPU Context-Switch Thrashing"]
+        C2["Disk IOPS WAL Bottleneck"]
+        C3["Memory Exhaustion"]
     end
+
+    DB --> C1
+    DB --> C2
+    DB --> C3
 ```
 
 ---
@@ -253,14 +256,17 @@ graph TD
     App2 -->|100 Conns| PGB
     App3 -->|100 Conns| PGB
 
-    PGB -->|25 Bounded Conns| DB
+    PGB -->|25 Bounded Conns| DB["PostgreSQL Primary (25 Conns)"]
 
-    subgraph Optimized_DB ["Single PostgreSQL Database Node"]
-        DB["PostgreSQL Primary (25 Conns)"]
-        DB --- H1["25 Fixed Backend Processes"]
-        DB --- H2["Optimal CPU Cache Usage"]
-        DB --- H3["Buffer Cache Protected"]
+    subgraph DB_Health ["Database Protected State"]
+        H1["25 Fixed Backend Processes"]
+        H2["Optimal CPU Cache Efficiency"]
+        H3["Protected Buffer Memory"]
     end
+
+    DB --> H1
+    DB --> H2
+    DB --> H3
 ```
 
 ---
@@ -277,13 +283,12 @@ sequenceDiagram
 
     Client->>App: POST /checkout
     App->>Proxy: BEGIN Transaction
-    Proxy->>DB: Assign Connection (from Pool)
+    Proxy->>DB: Assign Connection from Pool
     App->>Proxy: UPDATE inventory SET stock = stock - 1
     Proxy->>DB: Execute SQL Update
     App->>Proxy: COMMIT Transaction
     Proxy->>DB: Commit and Flush WAL
     Proxy-->>App: Transaction Complete
-    Note over Proxy,DB: Connection returned immediately to pool
     App-->>Client: 200 OK (Order Confirmed)
 ```
 
