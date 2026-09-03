@@ -162,14 +162,14 @@ flowchart TD
         direction TB
         WT_App[Application] -->|1. Write Data| WT_Cache[(Cache Layer)]
         WT_Cache -->|2. Sync Write| WT_DB[(Database)]
-        WT_Cache -->>|3. Ack to App| WT_App
+        WT_Cache -.->|3. Ack to App| WT_App
     end
 
     subgraph Pattern3["3. Write-Behind (Write-Back)"]
         direction TB
         WB_App[Application] -->|1. Write to Memory| WB_Cache[(Cache Layer)]
-        WB_Cache -->>|2. Immediate Ack| WB_App
-        WB_Cache -.->|3. Async Batch Flush| WB_DB[(Database)]
+        WB_Cache -.->|2. Immediate Ack| WB_App
+        WB_Cache -->|3. Async Batch Flush| WB_DB[(Database)]
     end
 ```
 
