@@ -5,9 +5,9 @@
 > **Related Guides**:  
 > - [Day 11 — The Request That Should Never Have Been Synchronous](../../days/phase-3-stop-making-everything-synchronous/day-11-never-synchronous-request/README.md)  
 > - [Day 12 — Introducing the Queue: Decoupling Producers from Consumers](../../days/phase-3-stop-making-everything-synchronous/day-12-introducing-the-queue/README.md)  
-> - [Day 13 — The Exactly-Once Myth: Dealing with Duplicates](../../days/phase-3-stop-making-everything-synchronous/day-13-exactly-once-myth/README.md)  
-> - [Day 14 — Backpressure: What Happens When Workers Fall Behind](../../days/phase-3-stop-making-everything-synchronous/day-14-back-pressure/README.md)  
-> - [Day 15 — Surviving Traffic Spikes](../../days/phase-3-stop-making-everything-synchronous/day-15-surviving-traffic-spikes/README.md)  
+> - Day 13 — The Exactly-Once Myth: Dealing with Duplicates *(Phase 3)*  
+> - Day 14 — Backpressure: What Happens When Workers Fall Behind *(Phase 3)*  
+> - Day 15 — Surviving Traffic Spikes *(Phase 3)*  
 > **Next Milestone**: `v5-resilient-services` (Phase 4)
 
 ---
@@ -182,4 +182,4 @@ docker compose up -d --build
 
 * **[ADR-11: Enforce Asynchronous Decoupling for Long-Running Operations](../../days/phase-3-stop-making-everything-synchronous/day-11-never-synchronous-request/README.md)**: Mandated the 500ms rule: any task exceeding 500ms or interacting with third-party external APIs must return HTTP 202 Accepted and execute asynchronously.
 * **[ADR-12: Adopt Durable Message Queues with Producer-Consumer Topology](../../days/phase-3-stop-making-everything-synchronous/day-12-introducing-the-queue/README.md)**: Replaced in-process threading with durable, persistent message brokers to eliminate deployment data loss.
-* **[ADR-13: Guarantee Idempotency and Dead Letter Quarantine](../../days/phase-3-stop-making-everything-synchronous/day-13-exactly-once-myth/README.md)**: Standardized deduplication keys on message consumers and quarantined poison pill messages into Dead Letter Queues after 3 failed retries.
+* **ADR-13: Guarantee Idempotency and Dead Letter Quarantine**: Standardized deduplication keys on message consumers and quarantined poison pill messages into Dead Letter Queues after 3 failed retries *(Detailed in Day 13)*.
