@@ -110,7 +110,7 @@ The industry often blurs these terms, but their architectural implications are r
 | **Cross-Partition ACID** | Full ACID transactions supported natively | **No cross-shard ACID** without distributed 2PC/Sagas |
 | **Foreign Keys & Joins** | Supported across partitions by the SQL engine | **Impossible** across shards at the database engine level |
 | **Routing Responsibility** | Handled transparently by PostgreSQL query planner | Handled by application code, client drivers, or proxy routers |
-| **Scalability Bottleneck** | Physical limits of a single machine's CPU, RAM, & IOPS | Near-linear horizontal scale across $N$ machines |
+| **Scalability Bottleneck** | Physical limits of a single machine's CPU, RAM, & IOPS | Near-linear horizontal scale across N machines |
 
 ```text
 Native Table Partitioning (Single Host):
@@ -143,7 +143,9 @@ In a **Shared-Nothing Architecture**, each shard is a completely autonomous data
 * There is no shared storage, no shared network buffer pool, and no central lock manager.
 * A client application wanting to read or write data must compute which shard holds that record using a deterministic mathematical function:
 
-$$\text{Target Shard} = f(\text{Shard Key})$$
+```text
+Target Shard = f(Shard Key)
+```
 
 ---
 
@@ -195,9 +197,9 @@ flowchart TD
 Data is partitioned into contiguous ranges based on the shard key value (e.g., date ranges, numerical ID ranges, or alphabetical ranges).
 
 * **How It Works**: 
-  * Orders with IDs `1` to `10,000,000` $\rightarrow$ Shard 01
-  * Orders with IDs `10,000,001` to `20,000,000` $\rightarrow$ Shard 02
-  * Orders created in `2024` $\rightarrow$ Shard 2024
+  * Orders with IDs `1` to `10,000,000` → Shard 01
+  * Orders with IDs `10,000,001` to `20,000,000` → Shard 02
+  * Orders created in `2024` → Shard 2024
 * **Where It Helps**: Range queries are exceptionally efficient. Running `SELECT * FROM orders WHERE created_at BETWEEN '2024-01-01' AND '2024-01-31'` targets a single physical shard.
 * **Limitations**: **Severe Write Hotspots.** In e-commerce, 99% of all write operations occur on current, active data. If you shard by date or auto-incrementing ID, **100% of all incoming writes slam into the single shard handling the latest range**, leaving older shards completely idle.
 * **When It Makes Sense**: Time-series metrics, telemetry, and append-only audit archives where older data is read-only and queries predominantly target bounded historical intervals.
@@ -206,15 +208,17 @@ Data is partitioned into contiguous ranges based on the shard key value (e.g., d
 
 ### 2. Hash-Based Sharding (Algorithmic / Modulo)
 
-Data is distributed uniformly across $N$ physical shards by applying a deterministic cryptographic or non-cryptographic hash function (e.g., MurmurHash3, MD5, CRC32) to the shard key, modulo the number of shards.
+Data is distributed uniformly across N physical shards by applying a deterministic cryptographic or non-cryptographic hash function (e.g., MurmurHash3, MD5, CRC32) to the shard key, modulo the number of shards.
 
-$$\text{Shard ID} = \text{MurmurHash3}(\text{Shard Key}) \pmod N$$
+```text
+Shard ID = MurmurHash3(Shard Key) % N
+```
 
-* **How It Works**: The application hashes the key (e.g., `user_id = 48291`), gets a 32-bit integer, computes modulo $N$, and routes the query directly to that shard instance.
-* **Where It Helps**: **Uniform Data and Write Distribution.** Randomizes data placement across all nodes, preventing sequential write hotspots. Every shard receives roughly $1/N$ of total system writes.
+* **How It Works**: The application hashes the key (e.g., `user_id = 48291`), gets a 32-bit integer, computes modulo N, and routes the query directly to that shard instance.
+* **Where It Helps**: **Uniform Data and Write Distribution.** Randomizes data placement across all nodes, preventing sequential write hotspots. Every shard receives roughly `1/N` of total system writes.
 * **Limitations**:
   1. **Range Scans Become Scatter-Gather**: Fetching a range of IDs requires querying every shard simultaneously.
-  2. **Rebalancing Nightmare with Naive Modulo**: If you have 4 shards and add a 5th shard, the formula changes from $\text{hash} \pmod 4$ to $\text{hash} \pmod 5$. **Over 80% of all existing keys must move to a different physical shard**, causing massive data reshuffling.
+  2. **Rebalancing Nightmare with Naive Modulo**: If you have 4 shards and add a 5th shard, the formula changes from `hash % 4` to `hash % 5`. **Over 80% of all existing keys must move to a different physical shard**, causing massive data reshuffling.
 * **When It Makes Sense**: High-throughput OLTP systems with random access patterns where uniform write distribution is the top priority.
 
 ---
@@ -335,17 +339,19 @@ What happens when your 4-shard cluster runs out of capacity and you must expand 
 
 ### Why Naive Modulo Fails
 If your routing logic is:
-$$\text{Shard ID} = \text{hash}(\text{key}) \pmod 4$$
-When expanding to 8 shards, the formula becomes $\text{hash}(\text{key}) \pmod 8$.
-* A key with hash `12`: $12 \pmod 4 = 0$ $\rightarrow$ $12 \pmod 8 = 4$ (Must Move)
-* A key with hash `13`: $13 \pmod 4 = 1$ $\rightarrow$ $13 \pmod 8 = 5$ (Must Move)
+```text
+Shard ID = hash(key) % 4
+```
+When expanding to 8 shards, the formula becomes `Shard ID = hash(key) % 8`.
+* A key with hash `12`: `12 % 4 = 0` → `12 % 8 = 4` (Must Move)
+* A key with hash `13`: `13 % 4 = 1` → `13 % 8 = 5` (Must Move)
 * **Result**: **87.5% of all existing records in the entire database must be physically migrated across the network.** Performing this on a live production database causes hours of downtime or severe performance degradation.
 
 ---
 
 ### Modern Solution 1: Consistent Hashing with Virtual Nodes
 
-Instead of a fixed modulo, the hash space is organized as an abstract ring from $0$ to $2^{32} - 1$.
+Instead of a fixed modulo, the hash space is organized as an abstract ring from `0` to `2^32 - 1`.
 
 ```mermaid
 flowchart LR
@@ -361,7 +367,7 @@ flowchart LR
 
 * Shards are assigned multiple positions ("virtual nodes") on the ring.
 * A key's hash places it on the ring; it is assigned to the next clockwise shard node.
-* **When a new shard is added, it only takes keys from its immediate neighbors.** Only $1/N$ of the total dataset moves across the network, leaving $(N-1)/N$ of the cluster completely untouched.
+* **When a new shard is added, it only takes keys from its immediate neighbors.** Only `1/N` of the total dataset moves across the network, leaving `(N-1)/N` of the cluster completely untouched.
 
 ---
 
@@ -371,7 +377,9 @@ This is the battle-tested pattern used by systems like Redis Cluster, DynamoDB, 
 
 1. Divide the system into a **large, fixed number of logical buckets** (e.g., exactly **1,024 virtual buckets**), regardless of how many physical machines you have.
 2. The shard key always maps to a bucket:
-   $$\text{Bucket ID} = \text{MurmurHash3}(\text{UserID}) \pmod{1024}$$
+   ```text
+   Bucket ID = MurmurHash3(user_id) % 1024
+   ```
 3. A lightweight mapping table assigns ranges of buckets to physical database hosts:
    * **Host A**: Buckets `0` to `255`
    * **Host B**: Buckets `256` to `511`
@@ -597,7 +605,9 @@ Operating a sharded cluster introduces distributed failure modes that never exis
 ### 1. The Scatter-Gather Tail Latency Explosion
 * **What Happens**: A user searches for an order without specifying a date or user filter, triggering a scatter-gather query across 32 shards.
 * **Impact**: If each shard has a P99 latency of 15ms, the overall P99 latency of the scatter-gather request is:
-  $$P(\text{All 32 shards respond within 15ms}) = 0.99^{32} \approx 72.5\%$$
+```text
+P(All 32 shards respond within 15ms) = 0.99^32 ≈ 72.5%
+```
   **There is a 27.5% probability that the user's request will take significantly longer than 15ms.** The slowest shard dictates the user's experience.
 * **Mitigation**:
   * Enforce mandatory shard key filters on public search endpoints.
@@ -664,7 +674,7 @@ Before embarking on database sharding, evaluate your system against this decisio
 
 1. **Exhaust Every Alternative First**: Sharding is the most complex architectural transition a team can undertake. Only shard when you have maxed out indexing, connection pooling, read replicas, caching, and vertical instance upgrades.
 2. **Prioritize Query Colocation Over Write Uniformity**: Choose a shard key that colocates the vast majority of your transactions and queries on a single node (e.g., `user_id`), even if it requires secondary indexes to handle occasional reverse lookups.
-3. **Use Fixed Virtual Buckets for Rebalancing**: Never use raw modulo hashing ($\text{hash} \pmod N$). Use fixed virtual buckets (e.g., 1024 buckets) from day one so you can add physical nodes by simply transferring bucket ranges.
+3. **Use Fixed Virtual Buckets for Rebalancing**: Never use raw modulo hashing (`hash % N`). Use fixed virtual buckets (e.g., 1024 buckets) from day one so you can add physical nodes by simply transferring bucket ranges.
 4. **Isolate Shard Metadata**: Do not hardcode shard connection strings in application configuration. Use a dynamic service registry or configuration manager to update shard allocations without redeploying code.
 
 ---
