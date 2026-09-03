@@ -223,7 +223,13 @@ $$\text{Shard ID} = \text{MurmurHash3}(\text{Shard Key}) \pmod N$$
 
 An external routing service or high-speed lookup table (stored in a dedicated database or Redis cluster) maintains an explicit mapping between each entity's Shard Key and its current physical Shard ID.
 
-$$\text{Mapping Store}: \{\text{user\_1042} \rightarrow \text{shard\_03}, \text{user\_1043} \rightarrow \text{shard\_01}, \text{tenant\_nike} \rightarrow \text{shard\_vip\_01}\}$$
+```text
+Mapping Store: {
+  "user_1042":   "shard_03",
+  "user_1043":   "shard_01",
+  "tenant_nike": "shard_vip_01"
+}
+```
 
 * **How It Works**: Every request first consults the directory service to resolve the target shard connection string, then connects to the shard to execute SQL.
 * **Where It Helps**: **Extreme Flexibility.** Moving a user or tenant from Shard 01 to Shard 04 requires updating a single entry in the directory. Perfect for isolating massive enterprise accounts ("VIP tenants") onto dedicated hardware.
@@ -314,7 +320,9 @@ Even with hash-based sharding, real-world data is rarely uniform. When an entity
 
 1. **Key Salting (Compounded Shard Key)**:
    For hyper-hot entities, append a pseudo-random salt to distribute their records across multiple shards:
-   $$\text{Compound Key} = \text{merchant\_id} + \text{"\_"} + \text{random}(0, 3)$$
+   ```python
+   compound_shard_key = f"{merchant_id}_{random.randint(0, 3)}"
+   ```
    Writes are distributed across 4 shards. Reads must query all 4 salted sub-partitions and aggregate results, trading read latency for write survival.
 2. **Dedicated VIP Shards**:
    Identify high-volume tenants through metrics. Using directory-based routing, assign the mega-tenant to an isolated, dedicated database cluster sized specifically for their workload, completely isolating normal tenants from their noisy neighbors.
@@ -363,7 +371,7 @@ This is the battle-tested pattern used by systems like Redis Cluster, DynamoDB, 
 
 1. Divide the system into a **large, fixed number of logical buckets** (e.g., exactly **1,024 virtual buckets**), regardless of how many physical machines you have.
 2. The shard key always maps to a bucket:
-   $$\text{Bucket ID} = \text{MurmurHash3}(\text{user\_id}) \pmod{1024}$$
+   $$\text{Bucket ID} = \text{MurmurHash3}(\text{UserID}) \pmod{1024}$$
 3. A lightweight mapping table assigns ranges of buckets to physical database hosts:
    * **Host A**: Buckets `0` to `255`
    * **Host B**: Buckets `256` to `511`
