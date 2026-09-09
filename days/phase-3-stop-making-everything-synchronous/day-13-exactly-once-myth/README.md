@@ -785,5 +785,5 @@ When architecting asynchronous message pipelines, run through this mental decisi
 
 ### 🧭 Navigation & Next Steps
 * Read the previous guide: **[Day 12 — Introducing the Queue: Decoupling Producers from Consumers](../day-12-introducing-the-queue/README.md)**
-* Read the next guide: **[Day 14 — Backpressure: Protecting Systems from Themselves](../day-14-back-pressure/README.md)**
+* Read the next guide: **[Day 14 — Back Pressure: When Your System Can't Keep Up](../day-14-back-pressure/README.md)**
 * View the architecture milestone: [`v4-async-workers`](../../../system-evolution/v4-async-workers/README.md)
