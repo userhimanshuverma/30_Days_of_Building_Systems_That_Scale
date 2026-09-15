@@ -760,5 +760,5 @@ When architecting coordination into a distributed system, follow this decision f
 ### 🧭 Navigation & Next Steps
 
 * Read the previous guide: **[Day 18 — The Cascading Failure: Circuit Breakers, Bulkheads, and System Isolation](../day-18-cascading-failures/README.md)**
-* Read the next guide: **[Day 20 — Consistency vs Availability: The Practical Realities of CAP and PACELC](../day-20-consistency-vs-availability/README.md)**
+* Read the next guide: **[Day 20 — Consistency vs Availability: A Real Engineering Decision](../day-20-consistency-vs-availability/README.md)**
 * View the architecture milestone: [`v5-resilient-services`](../../../system-evolution/v5-resilient-services/README.md)
