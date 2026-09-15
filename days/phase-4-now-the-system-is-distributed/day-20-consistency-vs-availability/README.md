@@ -176,7 +176,7 @@ In textbooks, consistency is binary: a system is either linearizable or it is no
 
 In real-world financial engineering, consistency is an **economic risk model**:
 
-$$\text{Total Business Cost} = \text{Cost of Lost Transactions (Unavailability)} + \text{Cost of Overdrafts \& Fraud (Inconsistency)}$$
+$$\text{Total Business Cost} = \text{Cost of Lost Transactions (Unavailability)} + \text{Cost of Overdrafts and Fraud (Inconsistency)}$$
 
 * If our platform processes $10,000,000 per hour in retail checkouts with an average profit margin of $1,000,000 per hour:
   * Rejecting all checkouts for 1 hour costs **$1,000,000** in lost gross profit, plus irreversible brand damage and customer churn.
