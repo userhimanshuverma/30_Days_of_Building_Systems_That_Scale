@@ -483,16 +483,17 @@ sequenceDiagram
     Client->>Edge: POST /api/v1/wallet/pay ($40.00)
     Edge->>EU_Svc: Route to nearest region (eu-central-1)
     
-    EU_Svc->>EU_DB: BEGIN TX; SELECT allocated_allowance, reserved_amount FROM regional_escrow WHERE user_id = 'alice' FOR UPDATE;
+    EU_Svc->>EU_DB: 1. SELECT quota FOR UPDATE (user: alice)
     EU_DB-->>EU_Svc: allocated: $50.00, reserved: $0.00
     
     Note over EU_Svc: Check available quota:<br/>$50.00 - $0.00 = $50.00 >= $40.00 (OK!)
     
-    EU_Svc->>EU_DB: UPDATE regional_escrow SET reserved_amount = reserved_amount + 40.00 WHERE user_id = 'alice';
-    EU_Svc->>EU_DB: INSERT INTO wallet_ledger (transaction_id, user_id, amount, status) VALUES ('tx-101', 'alice', 40.00, 'AUTHORIZED');
-    EU_Svc->>EU_DB: COMMIT;
+    EU_Svc->>EU_DB: 2. UPDATE regional_escrow (reserved += 40.00)
+    EU_Svc->>EU_DB: 3. INSERT INTO wallet_ledger (tx-101, $40, AUTHORIZED)
+    EU_Svc->>EU_DB: 4. COMMIT TX
+    EU_DB-->>EU_Svc: OK (Committed)
     
-    EU_Svc-->>Client: HTTP 200 OK {"status": "SUCCESS", "tx_id": "tx-101"}
+    EU_Svc-->>Client: HTTP 200 OK (status: SUCCESS, tx_id: tx-101)
     
     Note over Client,EU_Svc: Payment approved in 4ms with ZERO cross-region calls!
 ```
