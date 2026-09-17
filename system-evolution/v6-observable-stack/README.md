@@ -4,7 +4,7 @@
 > **Previous Milestone**: [`v5-resilient-services`](../v5-resilient-services/README.md)  
 > **Related Guides**:  
 > - [Day 21 — Your Users Know There's a Problem Before You Do](../../days/phase-5-cant-scale-what-you-cant-see/day-21-users-know-before-you/README.md)  
-> - Day 22 — The Dashboard That Doesn't Help During an Incident *(Phase 5)*  
+> - [Day 22 — The Dashboard That Doesn't Help During an Incident](../../days/phase-5-cant-scale-what-you-cant-see/day-22-unhelpful-dashboards/README.md) *(Phase 5)*  
 > - Day 23 — What Actually Happens During a Production Incident? *(Phase 5)*  
 > - Day 24 — Load Testing Before Your Users Do It for You *(Phase 5)*  
 > - Day 25 — Break Your Own System *(Phase 5)*  
