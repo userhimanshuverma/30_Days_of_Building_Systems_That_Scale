@@ -53,3 +53,68 @@ Key architectural pillars in this stage:
 | **Data Tier** | Multi-Region Aurora PostgreSQL with cross-region read replicas |
 | **Caching Tier** | Distributed Redis Cluster with sub-key salting & localized caching |
 | **Target Availability** | 99.99% ("Four Nines") |
+
+---
+
+## 🧩 Component Breakdown
+
+1. **Global Anycast Edge & Geo-DNS**:
+   * Directs user DNS queries to the nearest geographic region with lowest RTT latency.
+   * Performs automatic health checking and failover switching within 30 seconds of regional failure.
+2. **Envoy Perimeter Rate Limiter**:
+   * Edge reverse proxy enforcing distributed token-bucket and sliding window rate limits.
+   * Coordinates with regional Redis clusters via high-performance gRPC check calls.
+3. **Regional Compute Clusters (Kubernetes EKS/GKE)**:
+   * Autoscaling microservice fleets in `us-east-1` and `eu-west-1`.
+   * Completely stateless, with regional session caches and decoupled event publishers.
+4. **Multi-Region Aurora PostgreSQL Data Tier**:
+   * Active-Active writes partitioned by geographic region / customer shard.
+   * Asynchronous cross-region replication for read traffic and disaster recovery failover.
+5. **Cross-Region Redis Clusters**:
+   * Localized in-region read caching with write-through invalidation and cache warmup.
+6. **FinOps Cost & Telemetry Governance**:
+   * Automated cost attribution per tenant, ingress/egress bandwidth optimization, and right-sized spot instance fleets.
+
+---
+
+## 🚀 How to Launch This Milestone
+
+You can spin up a simulated multi-region active/passive topology locally using Docker Compose:
+
+```bash
+cd system-evolution/v7-global-architecture
+docker compose up -d --build
+```
+
+### Verification & Health Check
+
+1. **Verify Primary & Secondary Regional Ingress**:
+   ```bash
+   # Check Region 1 (Primary: port 8080)
+   curl -i http://localhost:8080/health
+   # Check Region 2 (Secondary: port 8081)
+   curl -i http://localhost:8081/health
+   ```
+
+2. **Verify Distributed Rate Limiting**:
+   ```bash
+   # Send burst traffic to test rate limit triggers (429 Too Many Requests)
+   for i in {1..20}; do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/api/v1/checkout; done
+   ```
+
+3. **Simulate Regional Failover**:
+   ```bash
+   # Pause primary region compute to verify automatic failover routing
+   docker compose pause app-region-1
+   curl -i http://localhost:8080/api/v1/catalog
+   ```
+
+---
+
+## 🏛️ Associated Architectural Decisions (ADRs)
+
+* **[ADR-26: Distributed Sliding Window Rate Limiting](../../days/phase-6-designing-for-real-scale/day-26-rate-limiting-at-scale/README.md)**: Protected downstream infrastructure from abusive burst spikes using Redis Lua scripts.
+* **[ADR-27: Multi-Region Active-Active with Asynchronous Replication](../../days/phase-6-designing-for-real-scale/day-27-multi-region-architecture/README.md)**: Partitioned authoritative writes by primary region while keeping local read replicas in secondary regions.
+* **[ADR-28: Cloud Unit Economics & Egress Traffic Optimization](../../days/phase-6-designing-for-real-scale/day-28-scaling-cost-economics/README.md)**: Minimized inter-AZ data transfer fees and right-sized compute nodes to achieve predictable unit costs.
+* **[ADR-29: 10× Growth Architecture & Decoupling Triggers](../../days/phase-6-designing-for-real-scale/day-29-designing-for-10x-growth/README.md)**: Defined explicit metrics thresholds for database sharding, CQRS separation, and asynchronous migrations.
+* **[ADR-30: The Complete Architecture Retrospective](../../days/phase-6-designing-for-real-scale/day-30-the-system-that-grew-with-us/README.md)**: Documented the journey from single-server monolith to globally distributed, fault-tolerant platform.

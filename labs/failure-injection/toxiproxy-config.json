@@ -1,0 +1,20 @@
+[
+  {
+    "name": "payment_gateway",
+    "listen": "0.0.0.0:8475",
+    "upstream": "payment-upstream:8080",
+    "enabled": true
+  },
+  {
+    "name": "postgres_primary",
+    "listen": "0.0.0.0:5433",
+    "upstream": "postgres-primary:5432",
+    "enabled": true
+  },
+  {
+    "name": "redis_cluster",
+    "listen": "0.0.0.0:6380",
+    "upstream": "redis-master:6379",
+    "enabled": true
+  }
+]

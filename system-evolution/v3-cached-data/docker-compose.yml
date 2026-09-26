@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  load-balancer:
+    image: nginx:alpine
+    container_name: shopscale-v3-lb
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app-01
+      - app-02
+
+  app-01:
+    image: node:18-alpine
+    container_name: shopscale-v3-app1
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app
+    environment:
+      PORT: 8080
+      INSTANCE_NAME: app-instance-01
+      REDIS_HOST: redis
+    command: node server.js
+    depends_on:
+      - redis
+
+  app-02:
+    image: node:18-alpine
+    container_name: shopscale-v3-app2
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app
+    environment:
+      PORT: 8080
+      INSTANCE_NAME: app-instance-02
+      REDIS_HOST: redis
+    command: node server.js
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: shopscale-v3-redis
+    ports:
+      - "6379:6379"
+
+  postgres-primary:
+    image: postgres:15-alpine
+    container_name: shopscale-v3-primary
+    environment:
+      POSTGRES_DB: shopscale
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+
+  postgres-replica:
+    image: postgres:15-alpine
+    container_name: shopscale-v3-replica
+    environment:
+      POSTGRES_DB: shopscale
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"

@@ -1,0 +1,26 @@
+graph TD
+    Client["Client Request"] --> Gateway["API Gateway (Envoy)"]
+
+    subgraph Service_Mesh["Resilient Microservice Mesh"]
+        Gateway -->|Route with Deadline| OrderSvc["Order Service"]
+        OrderSvc -->|gRPC + Circuit Breaker| InventorySvc["Inventory Service"]
+        OrderSvc -->|gRPC + Bulkhead| PaymentSvc["Payment Service"]
+    end
+
+    subgraph Outbox_CDC["Transactional Outbox & CDC"]
+        OrderSvc -->|Atomic ACID Txn| OrderDB[("Order DB + Outbox Table")]
+        Debezium["Debezium CDC Engine"] -->|Tail WAL Log| OrderDB
+        Debezium -->|Publish Domain Events| Kafka[("Kafka Event Broker")]
+    end
+
+    subgraph Async_Saga["Asynchronous Choreographed Sagas"]
+        Kafka -->|OrderCreated Event| PayWorker["Payment Processing Worker"]
+        Kafka -->|PaymentFailed Event| CompensateWorker["Order Compensation Worker"]
+    end
+
+    subgraph Idempotency_State["Shared Resilience State"]
+        Redis[("Redis Distributed Idempotency Store")]
+    end
+
+    OrderSvc <--> Redis
+    PaymentSvc <--> Redis

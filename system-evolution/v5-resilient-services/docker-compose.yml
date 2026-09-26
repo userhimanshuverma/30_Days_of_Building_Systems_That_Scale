@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  gateway:
+    image: node:18-alpine
+    container_name: shopscale-v5-gateway
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app
+    ports:
+      - "8080:8080"
+    command: node server.js
+    depends_on:
+      - redis
+      - postgres-orders
+
+  redis:
+    image: redis:7-alpine
+    container_name: shopscale-v5-idempotency
+    ports:
+      - "6379:6379"
+
+  postgres-orders:
+    image: postgres:15-alpine
+    container_name: shopscale-v5-orders-db
+    environment:
+      POSTGRES_DB: orders_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+
+  postgres-payments:
+    image: postgres:15-alpine
+    container_name: shopscale-v5-payments-db
+    environment:
+      POSTGRES_DB: payments_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"

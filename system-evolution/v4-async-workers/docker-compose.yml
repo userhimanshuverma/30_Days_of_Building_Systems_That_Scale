@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: shopscale-v4-broker
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: node:18-alpine
+    container_name: shopscale-v4-api
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app
+    environment:
+      PORT: 8080
+      RABBITMQ_URL: amqp://rabbitmq:5672
+    ports:
+      - "8080:8080"
+    command: node server.js
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  worker-catalog:
+    image: node:18-alpine
+    container_name: shopscale-v4-worker-cat
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app
+    environment:
+      WORKER_NAME: catalog-worker-01
+      RABBITMQ_URL: amqp://rabbitmq:5672
+    command: node worker.js
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  worker-notifications:
+    image: node:18-alpine
+    container_name: shopscale-v4-worker-notif
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app
+    environment:
+      WORKER_NAME: notification-worker-01
+      RABBITMQ_URL: amqp://rabbitmq:5672
+    command: node worker.js
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    container_name: shopscale-v4-redis
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: shopscale-v4-db
+    environment:
+      POSTGRES_DB: shopscale
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"

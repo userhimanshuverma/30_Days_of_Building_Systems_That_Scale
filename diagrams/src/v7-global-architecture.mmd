@@ -1,0 +1,18 @@
+graph TD
+    User["Global Internet Users"] --> DNS["Anycast Geo-DNS / CDN Edge"]
+
+    subgraph Region_US["Region 1: us-east-1 (Primary)"]
+        DNS -->|Lowest RTT Latency| IngressUS["Envoy Ingress + Rate Limiter"]
+        IngressUS --> AppUS["Kubernetes Compute Fleet (US)"]
+        AppUS <--> RedisUS[("Redis Cache Cluster (US)")]
+        AppUS --> AuroraPrimary[("Aurora PostgreSQL Primary DB")]
+    end
+
+    subgraph Region_EU["Region 2: eu-central-1 (Secondary)"]
+        DNS -.->|Failover / Geo-Affinity| IngressEU["Envoy Ingress + Rate Limiter"]
+        IngressEU --> AppEU["Kubernetes Compute Fleet (EU)"]
+        AppEU <--> RedisEU[("Redis Cache Cluster (EU)")]
+        AppEU -.->|Local Reads| AuroraReplica[("Aurora Cross-Region Read Replica")]
+    end
+
+    AuroraPrimary -->|Asynchronous Cross-Region Replication| AuroraReplica

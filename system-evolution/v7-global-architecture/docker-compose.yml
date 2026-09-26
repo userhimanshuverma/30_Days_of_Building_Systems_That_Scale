@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  app-region-1:
+    image: node:18-alpine
+    container_name: shopscale-v7-us-east
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app
+    environment:
+      PORT: 8080
+      REGION: us-east-1
+    ports:
+      - "8080:8080"
+    command: node server.js
+    depends_on:
+      - redis-region-1
+
+  app-region-2:
+    image: node:18-alpine
+    container_name: shopscale-v7-eu-central
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app
+    environment:
+      PORT: 8081
+      REGION: eu-central-1
+    ports:
+      - "8081:8081"
+    command: node server.js
+    depends_on:
+      - redis-region-2
+
+  redis-region-1:
+    image: redis:7-alpine
+    container_name: shopscale-v7-redis-us
+    ports:
+      - "6379:6379"
+
+  redis-region-2:
+    image: redis:7-alpine
+    container_name: shopscale-v7-redis-eu
+    ports:
+      - "6380:6379"

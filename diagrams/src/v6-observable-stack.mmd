@@ -1,0 +1,21 @@
+graph TD
+    Client["User Traffic + k6 Load Generator"] --> Ingress["API Gateway (Envoy)"]
+
+    subgraph Instrumented_Services["Instrumented Services with Toxiproxy"]
+        Ingress --> App["Application Services"]
+        App <-->|Injected Latency/Jitter| Toxic["Toxiproxy Chaos Sidecar"]
+        Toxic <--> Downstream["Downstream Partners"]
+    end
+
+    subgraph OTel_Pipeline["OpenTelemetry Observability Pipeline"]
+        App -->|OTLP Traces, RED Metrics, JSON Logs| Collector["OTel Collector Daemon"]
+        Collector -->|Metrics Scrape| Prom["Prometheus (USE & RED)"]
+        Collector -->|Distributed Spans| Tempo["Grafana Tempo (Traces)"]
+        Collector -->|Structured Streams| Loki["Grafana Loki (Logs)"]
+    end
+
+    subgraph Visual_Pane["Correlated Single Pane of Glass"]
+        Prom --> Grafana["Unified Grafana Dashboards"]
+        Tempo --> Grafana
+        Loki --> Grafana
+    end

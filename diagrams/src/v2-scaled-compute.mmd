@@ -1,0 +1,29 @@
+graph TD
+    Client["Client Browsers / Apps"] -->|HTTPS| LB["Load Balancer (NGINX/ALB)"]
+
+    subgraph Compute_Tier["Stateless Compute Tier"]
+        LB --> App1["App Instance 01"]
+        LB --> App2["App Instance 02"]
+        LB --> AppN["App Instance N"]
+    end
+
+    subgraph External_State["Externalized State Tier"]
+        Redis[("Redis Session Cluster")]
+        S3["S3 Object Storage (Media)"]
+    end
+
+    App1 --> Redis
+    App2 --> Redis
+    AppN --> Redis
+
+    App1 --> S3
+    App2 --> S3
+    AppN --> S3
+
+    subgraph Data_Tier["Central Data Tier (Bottleneck)"]
+        DB[("PostgreSQL Primary DB")]
+    end
+
+    App1 -->|Connection Pool| DB
+    App2 -->|Connection Pool| DB
+    AppN -->|Connection Pool| DB

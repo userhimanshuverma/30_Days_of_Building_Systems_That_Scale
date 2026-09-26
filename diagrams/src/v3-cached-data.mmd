@@ -1,0 +1,38 @@
+graph TD
+    Client["Client Apps / Browsers"] -->|HTTPS| LB["Load Balancer (L7)"]
+
+    subgraph Compute_Tier["Stateless Compute Tier"]
+        LB --> App1["App Instance 01"]
+        LB --> App2["App Instance 02"]
+        LB --> AppN["App Instance N"]
+    end
+
+    subgraph Caching_Tier["In-Memory Caching Tier"]
+        Redis[("Redis Cluster (Cache-Aside & Locks)")]
+    end
+
+    App1 <-->|Read / Invalidate| Redis
+    App2 <-->|Read / Invalidate| Redis
+    AppN <-->|Read / Invalidate| Redis
+
+    subgraph DB_Access_Tier["Database Multiplexing"]
+        PgB_W["PgBouncer (Writes)"]
+        PgB_R["PgBouncer (Reads)"]
+    end
+
+    App1 -->|Writes| PgB_W
+    App2 -->|Writes| PgB_W
+    AppN -->|Writes| PgB_W
+
+    App1 -.->|Read Queries| PgB_R
+    App2 -.->|Read Queries| PgB_R
+    AppN -.->|Read Queries| PgB_R
+
+    subgraph Database_Cluster["PostgreSQL Primary & Read Replicas"]
+        Primary[("PostgreSQL Primary DB")]
+        Replica[("PostgreSQL Read Replicas")]
+        Primary -->|Async Streaming WAL| Replica
+    end
+
+    PgB_W --> Primary
+    PgB_R --> Replica

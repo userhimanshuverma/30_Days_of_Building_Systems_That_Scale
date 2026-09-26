@@ -1,0 +1,17 @@
+graph TD
+    Client["Client App / Browser"] -->|HTTP REST| Router["API Router"]
+
+    subgraph Single_Server["Single Server Process (v1-monolith)"]
+        Router --> Auth["Auth Module"]
+        Router --> Catalog["Catalog Module"]
+        Router --> Order["Order Module"]
+        Router --> Inventory["Inventory Module"]
+
+        Order -.->|In-Memory Call| Inventory
+        Catalog -.->|In-Memory Call| Inventory
+    end
+
+    Auth -->|Local SQL/Txn| DB[("PostgreSQL Primary DB")]
+    Order -->|Local SQL/Txn| DB
+    Catalog -->|Local SQL/Txn| DB
+    Inventory -->|Local SQL/Txn| DB

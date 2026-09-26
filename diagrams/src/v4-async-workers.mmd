@@ -1,0 +1,38 @@
+graph TD
+    Client["Client Apps / Browsers"] -->|HTTP REST| LB["Load Balancer"]
+
+    subgraph API_Tier["Stateless API Tier"]
+        LB --> API1["API Server 01"]
+        LB --> API2["API Server 02"]
+    end
+
+    API1 -->|HTTP 202 Accepted| Client
+
+    subgraph Broker_Tier["Message Broker Tier"]
+        Queue["RabbitMQ / Kafka Topics"]
+        DLQ["Dead Letter Queue (DLQ)"]
+        Queue -.->|Poison Pill / Retries Exceeded| DLQ
+    end
+
+    API1 -->|Publish Event / Job| Queue
+    API2 -->|Publish Event / Job| Queue
+
+    subgraph Worker_Tier["Autonomous Worker Fleet"]
+        Worker1["Order Fulfillment Worker"]
+        Worker2["Media Processing Worker"]
+        Worker3["Notification & Webhook Worker"]
+    end
+
+    Queue -->|Consume Task| Worker1
+    Queue -->|Consume Task| Worker2
+    Queue -->|Consume Task| Worker3
+
+    subgraph Persistent_Stores["Persistent Stores"]
+        DB[("PostgreSQL DB")]
+        S3["S3 Storage"]
+        Email["SendGrid / SMS"]
+    end
+
+    Worker1 --> DB
+    Worker2 --> S3
+    Worker3 --> Email

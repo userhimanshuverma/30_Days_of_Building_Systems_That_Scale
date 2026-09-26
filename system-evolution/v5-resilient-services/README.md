@@ -76,3 +76,69 @@ With service decomposition came the reality of **distributed systems physics**:
 | **Fault Isolation** | Bulkheads & Circuit Breakers (Envoy / Resilience4j); partial failures never crash upstream callers |
 | **Consistency Model** | Eventual Consistency via Sagas & Transactional Outbox; strict read-your-own-writes per aggregate |
 | **Data Partitioning** | Separate databases per microservice domain; zero cross-service foreign keys or distributed locks |
+
+---
+
+## 🧩 Component Breakdown
+
+1. **API Gateway (Envoy Proxy)**:
+   * Terminates external client TLS and enforces ingress rate limiting and routing.
+   * Manages ingress circuit breakers, connection limits, and outbound timeout policies.
+2. **Order Service (`order-service`)**:
+   * Coordinates order creation sagas using the Transactional Outbox pattern.
+   * Emits `OrderCreated` domain events to local database outbox tables before committing.
+3. **Payment Service (`payment-service`)**:
+   * Isolated PCI-DSS compliant service handling payment capture.
+   * Integrates circuit breaker fallbacks, idempotency deduplication keys (`Idempotency-Key` header), and tokenized payment storage.
+4. **Kafka Event Backbone**:
+   * Distributed, partitioned log delivering domain events with at-least-once delivery guarantees.
+   * Consumer groups maintain independent checkpoint offsets with dead-letter queue (DLQ) diversion.
+5. **Redis Idempotency & Circuit State Store**:
+   * Fast atomic lookup store for consumer idempotency verification (`SETNX` locks).
+   * Shared circuit breaker state and rate limiter counters.
+6. **Domain-Isolated Databases**:
+   * Dedicated PostgreSQL databases for Order and Payment domains, preventing cross-service schema lock contention.
+
+---
+
+## 🚀 How to Launch This Milestone
+
+You can spin up the full resilient distributed topology locally using Docker Compose:
+
+```bash
+cd system-evolution/v5-resilient-services
+docker compose up -d --build
+```
+
+### Verification & Health Check
+
+1. **Verify Circuit Breaker Metrics**:
+   ```bash
+   # Check Envoy / service circuit breaker status
+   curl -s http://localhost:8080/stats | grep "circuit_breakers"
+   ```
+
+2. **Test Idempotent Order Submission**:
+   ```bash
+   # Submit order with idempotency key
+   curl -i -X POST http://localhost:8080/api/v1/orders \
+     -H "Content-Type: application/json" \
+     -H "Idempotency-Key: ord-unique-uuid-9921" \
+     -d '{"item_id": 402, "quantity": 1, "total_cents": 1999}'
+
+   # Re-submit identical request (Must return cached response without duplicate billing)
+   curl -i -X POST http://localhost:8080/api/v1/orders \
+     -H "Content-Type: application/json" \
+     -H "Idempotency-Key: ord-unique-uuid-9921" \
+     -d '{"item_id": 402, "quantity": 1, "total_cents": 1999}'
+   ```
+
+---
+
+## 🏛️ Associated Architectural Decisions (ADRs)
+
+* **[ADR-16: Assume Network Unreliability & Enforce Deadlines](../../days/phase-4-now-the-system-is-distributed/day-16-network-is-unreliable/README.md)**: Standardized dual-tier timeouts and context propagation across all network RPC boundaries.
+* **[ADR-17: Exponential Backoff with Full Random Jitter](../../days/phase-4-now-the-system-is-distributed/day-17-timeouts-retries-retry-storm/README.md)**: Mitigated catastrophic thundering herds by introducing randomized backoff intervals and retry quotas.
+* **[ADR-18: Circuit Breaker and Bulkhead Isolation](../../days/phase-4-now-the-system-is-distributed/day-18-cascading-failures/README.md)**: Isolated failures to failing dependencies, preventing system-wide thread starvation.
+* **[ADR-19: Eventual Consistency via Sagas & Transactional Outbox](../../days/phase-4-now-the-system-is-distributed/day-19-distributed-disagreement/README.md)**: Abandoned distributed 2PC locks in favor of choreographed sagas and compensations.
+* **[ADR-20: Tunable Consistency and PACELC Alignment](../../days/phase-4-now-the-system-is-distributed/day-20-consistency-vs-availability/README.md)**: Explicitly prioritized availability and latency over global consistency during network partitions.
